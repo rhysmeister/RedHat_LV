@@ -1,0 +1,53 @@
+---
+- hosts: all
+  gather_facts: yes
+  vars:
+    device: /dev/sdb
+    volume_group: test-vg
+    logical_volume: test-lv
+    filesystem: ext4
+    mount_point: /mnt/test_temp
+    install_lvm2: yes
+
+  tasks:
+
+  - name: Ensure lvm2 package is installed
+    package:
+      name: lvm2
+    when: install_lvm2
+
+  - name: Create a partition on {{ device }}
+    parted:
+      device: "{{ device }}"
+      number: 1
+      state: present
+      fs_type: "{{ filesystem }}"
+
+  - name: Create a new volume group
+    lvg:
+      vg: "{{ volume_group }}"
+      pvs: "{{ device }}1"
+
+  - name: Create a logical volume
+    lvol:
+      vg: "{{ volume_group }}"
+      lv: "{{ logical_volume }}"
+      size: 100%PVS
+
+  - name: "{{ filesystem }} format {{ loigcal_volume }}"
+    filesystem:
+      fstype: "{{ filesystem }}"
+      dev: "/dev/{{ volume_group }}/{{ logical_volume }}"
+
+  - name: Ensure the mount point exists
+    file:
+      path: "{{ mount_point }}"
+      state: directory
+      mode: 0755
+
+  - name: Mount the new volume
+    mount:
+      path: "{{ mount_point }}"
+      src: "/dev/{{ volume_group }}/{{ logical_volume }}"
+      fstype: "{{ filesystem }}"
+      state: mounted
